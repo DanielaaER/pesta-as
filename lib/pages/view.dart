@@ -1,58 +1,117 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:organization/pages/app.dart';
-import 'package:organization/pages/explorer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_cookie_manager/webview_cookie_manager.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+// Import for iOS features.
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+// #enddocregion platform_imports
 
-class Page {
+
+import 'app.dart';
+import 'explorer.dart';
+
+class Pestana {
   final String name;
   final String url;
-  final List<String> cookies;
+  final String uniqueId;
+  late WebViewController controller;
 
-  Page({required this.name, required this.url, required this.cookies});
+  Pestana({required this.name, required this.url})
+      : uniqueId = UniqueKey().toString();
 }
 
 class ViewPage extends StatefulWidget {
-  final Page page;
-  String nombre = "click para ver mas";
-  String url = "no url";
-  late WebViewController controller;
+  final Pestana page;
 
-  // ViewPage(String link, String text, WebViewController _controller) {
-  //   this.nombre = text;
-  //   this.url = link;
-  //   this.controller = _controller;
-  //   print("nombre view ${this.nombre}");
-  //   print("url view ${this.nombre}");
-  // }
   ViewPage({required this.page});
 
   @override
-  ViewPageState createState() =>
-      ViewPageState(this.url, this.nombre, this.controller);
+  ViewPageState createState() => ViewPageState();
 }
 
 class ViewPageState extends State<ViewPage> {
+  late WebViewController _controller;
+  final cookieManager = WebviewCookieManager();
+  late WebviewCookieManager _cookieManager; // Use a dedicated cookie manager for each WebView
   @override
   void initState() {
     super.initState();
-    // Enable virtual display.
-    if (Platform.isAndroid) WebView.platform = AndroidWebView();
-  }
+    _cookieManager = WebviewCookieManager();
 
-  late WebViewController _controller;
+    late final PlatformWebViewControllerCreationParams params;
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+        mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+      );
+    } else {
+      params = const PlatformWebViewControllerCreationParams();
+    }
 
-  ViewPageState(String link, String text, WebViewController _controller) {
-    this._controller = _controller;
-    print("nombre view ${widget.page.name}");
-    print("url view ${widget.page.url}");
-    print("cookie ${widget.page.cookies}");
-  }
+    final WebViewController controller =
+    WebViewController.fromPlatformCreationParams(params);
+    // #enddocregion platform_features
 
-  TextEditingController controller = TextEditingController();
+    controller
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (int progress) {
+            debugPrint('WebView is loading (progress : $progress%)');
+          },
+          onPageStarted: (String url) {
+            debugPrint('Page started loading: $url');
+          },
+          onPageFinished: (String url) {
+            debugPrint('Page finished loading: $url');
+          },
+          onWebResourceError: (WebResourceError error) {
+            debugPrint('''
+Page resource error:
+  code: ${error.errorCode}
+  description: ${error.description}
+  errorType: ${error.errorType}
+  isForMainFrame: ${error.isForMainFrame}
+          ''');
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            if (request.url.startsWith('https://www.youtube.com/')) {
+              debugPrint('blocking navigation to ${request.url}');
+              return NavigationDecision.prevent;
+            }
+            debugPrint('allowing navigation to ${request.url}');
+            return NavigationDecision.navigate;
+          },
+          onUrlChange: (UrlChange change) {
+            debugPrint('url change to ${change.url}');
+          },
+        ),
+      )
+      ..addJavaScriptChannel(
+        'Toaster',
+        onMessageReceived: (JavaScriptMessage message) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message.message)),
+          );
+        },
+      )
+      ..loadRequest(Uri.parse('https://flutter.dev'));
+
+    // #docregion platform_features
+    if (controller.platform is AndroidWebViewController) {
+      AndroidWebViewController.enableDebugging(true);
+      (controller.platform as AndroidWebViewController)
+          .setMediaPlaybackRequiresUserGesture(false);
+    }
+    // #enddocregion platform_features
+
+    _controller = controller;
+
+}
 
   @override
   Widget build(BuildContext context) {
@@ -65,48 +124,67 @@ class ViewPageState extends State<ViewPage> {
             children: [
               Container(
                 alignment: AlignmentDirectional.centerStart,
-                width: MediaQuery.of(context).size.width * .72,
+                width: MediaQuery
+                    .of(context)
+                    .size
+                    .width * .72,
                 child: TextButton(
-                    style: TextButton.styleFrom(
-                        primary: Colors.transparent,
-                        padding: EdgeInsets.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                        fixedSize:
-                            Size(MediaQuery.of(context).size.width * .65, 1)),
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ExplorerScreen(),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      "${widget.page.name}",
-                      style: TextStyle(
-                        fontSize: 16.0,
-                        color: Colors.white,
+                  style: TextButton.styleFrom(
+                    primary: Colors.transparent,
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                    fixedSize: Size(MediaQuery
+                        .of(context)
+                        .size
+                        .width * .65, 1),
+                  ),
+                  onPressed: () {
+                    // _saveCookies();
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ExplorerScreen(),
                       ),
-                    )),
+                    );
+                  },
+                  child: Text(
+                    "${widget.page.name}",
+                    style: TextStyle(
+                      fontSize: 16.0,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
               Container(
-                width: MediaQuery.of(context).size.width * .2,
+                width: MediaQuery
+                    .of(context)
+                    .size
+                    .width * .2,
                 alignment: AlignmentDirectional.centerEnd,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                      primary: Colors.transparent,
-                      onPrimary: Colors.black,
-                      fixedSize: Size(
-                        MediaQuery.of(context).size.width * .00001,
-                        MediaQuery.of(context).size.height * .001,
-                      )),
+                    primary: Colors.transparent,
+                    onPrimary: Colors.black,
+                    fixedSize: Size(
+                      MediaQuery
+                          .of(context)
+                          .size
+                          .width * .00001,
+                      MediaQuery
+                          .of(context)
+                          .size
+                          .height * .001,
+                    ),
+                  ),
                   onPressed: () {
                     Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AppScreen(),
-                        ));
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AppScreen(),
+                      ),
+                    );
                   },
                   child: Text("+"),
                 ),
@@ -115,33 +193,9 @@ class ViewPageState extends State<ViewPage> {
           ),
         ),
       ),
-      body: WebView(
-        initialUrl: widget.page.url,
-        javascriptMode: JavascriptMode.unrestricted,
-        onWebViewCreated: (WebViewController webViewController) {
-          _controller = webViewController;
-          _loadCookies();
-        },
-      ),
+      body: WebViewWidget(controller: _controller),
     );
   }
 
-  Future<void> _loadCookies() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedCookies = prefs.getStringList(widget.page.name);
 
-    if (savedCookies != null) {
-      for (String cookie in savedCookies) {
-        _controller.evaluateJavascript('document.cookie = "$cookie";');
-      }
-    }
-  }
-
-  Future<void> _saveCookies() async {
-    String cookies = await _controller.evaluateJavascript('document.cookie');
-    List<String> cookieList = cookies.split(';').map((e) => e.trim()).toList();
-
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setStringList(widget.page.name, cookieList);
-  }
 }

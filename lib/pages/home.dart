@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:organization/pages/app.dart';
-import 'package:organization/pages/view.dart';
+import 'package:organization/pages/explorer.dart';
+import 'package:organization/pages/vista.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MyHomePage extends StatefulWidget {
-
-
   @override
   _MyHomePageState createState() => _MyHomePageState();
-
 }
 
 class _MyHomePageState extends State<MyHomePage> {
@@ -18,7 +16,6 @@ class _MyHomePageState extends State<MyHomePage> {
   String nombre = "click para ver mas";
 
   String url = "sin pestaña abierta";
-
 
   @override
   void initState() {
@@ -51,10 +48,11 @@ class _MyHomePageState extends State<MyHomePage> {
           child: ElevatedButton(
             onPressed: () {
               Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AppScreen(),
-                  ));
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AppScreen(),
+                ),
+              );
             },
             child: Text(
               '+',
@@ -64,7 +62,9 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       );
     } else {
-      return ViewPage(url, nombre);
+      return Scaffold(
+        body: ExplorerScreen(),
+      );
     }
   }
 }

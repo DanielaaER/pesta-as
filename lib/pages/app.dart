@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:organization/pages/view.dart';
+import 'package:organization/pages/vista.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
 
 class AppScreen extends StatefulWidget {
   @override
@@ -25,7 +26,6 @@ class _AppScreenState extends State<AppScreen> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       pestanasAbiertas = prefs.getStringList('pestanas') ?? [];
-
       urlAbiertas = prefs.getStringList('urls') ?? [];
     });
   }
@@ -37,11 +37,10 @@ class _AppScreenState extends State<AppScreen> {
     prefs.setStringList('urls', urlAbiertas);
   }
 
-  // Anadir nueva pestana
+  // Añadir nueva pestana
   void agregarPestana(String nombre, IconData icono, String url) {
     setState(() {
       pestanasAbiertas.add(nombre);
-
       urlAbiertas.add(url);
       controller.clear();
       guardarPestanas();
@@ -70,11 +69,15 @@ class _AppScreenState extends State<AppScreen> {
             ),
             TextButton(
               onPressed: () {
-
                 var nombre = controller.text;
                 agregarPestana(controller.text, icono, url);
                 Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => ViewPage(page: , ),
+                  builder: (context) => ViewPage(
+                    page: Pestana(
+                      name: nombre,
+                      url: url,
+                    ),
+                  ),
                 ));
               },
               child: Text('Agregar'),
@@ -88,14 +91,14 @@ class _AppScreenState extends State<AppScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
+      appBar: AppBar(
         backgroundColor: Colors.deepPurple,
         automaticallyImplyLeading: false,
         title: Container(
           child: Text("Apps"),
-        )
         ),
-        body: GridView.builder(
+      ),
+      body: GridView.builder(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
         ),

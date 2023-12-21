@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_cookie_manager/webview_cookie_manager.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import 'app.dart';
@@ -28,26 +29,14 @@ class Pestana {
       print("save cookies");
       print("${uniqueId}_cookies_$name");
       print(cookies);
+
+      print("clear in save");
+      _globalCookieManager.clearCookies();
     } catch (error) {
       if (kDebugMode) {
         print("Error al guardar las cookies: $error");
       }
     }
-  }
-
-  Future<void> clearCookies() async {
-    var cookies = await _getCookies() ?? '';
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setStringList('${uniqueId}_cookies_$name', [cookies]);
-    print("save cookies");
-    print("${uniqueId}_cookies_$name");
-    print(cookies);
-
-    print("clear in save");
-    _globalCookieManager.clearCookies();
-    print("cookies limpias");
-    cookies = await _getCookies() ?? '';
-    print(cookies);
   }
 
   Future<void> loadCookies() async {
@@ -58,59 +47,21 @@ class Pestana {
     print("load cookie");
     print("${uniqueId}_cookies_$name");
     print(cookiesStringList);
-    getCook();
-    // List<String> cookiesStringListSinComillas = cookiesStringList!
-    //     .map((cookie) => cookie.replaceAll('"', ''))
-    //     .toList();
-    //
-    // if (cookiesStringList != null) {
-    //   print("coookk");
-    //   final cookie = cookiesStringListSinComillas
-    //       .map((cookieString) => Cookie.fromSetCookieValue(cookieString))
-    //       .toList();
-    //
-    //   print("cookie = ${cookie}");
-    //   String cookies = cookie.join('; ');
-    //
-    //   print("cookiesss" + cookies);
-    //   cookies.replaceAll('"', '');
-    //   print(cookies);
-    //
-    //   await _globalCookieManager.setCookies(cookie, origin: url);
-    //
-    //
-    //   controller.evaluateJavascript('document.cookie="${cookies.toString()}"');
-    //   print("new pasge");
-    // }
+
     if (cookiesStringList != null) {
-      print("coookk");
-      List<String> cookiesStringListSinComillas = cookiesStringList
-          .map((cookie) => cookie.replaceAll('"', ''))
-          .toList();
-      print(cookiesStringListSinComillas);
-
-      final cookies = cookiesStringListSinComillas
-          .map((cookieString) => Cookie.fromSetCookieValue(cookieString))
-          .where((cookie) => cookie != null) // Filter out null cookies
-          .toList();
-      print("cookie = ${cookies}");
-      String cookiesHeader = cookies.join('; ');
-
-      print("cookiesss" + cookiesHeader);
-      cookiesHeader = cookiesHeader.replaceAll('"', '');
-      print(cookiesHeader);
+      // final cookies = cookiesStringList
+      //     .map((cookieString) => Cookie.fromSetCookieValue(cookieString))
+      //     .toList();
       // await _globalCookieManager.setCookies(cookies, origin: url);
-
-      controller.evaluateJavascript('document.cookie="${cookiesStringList}"');
       print("new pasge");
-      _getCookies();
+
     }
   }
 
   Future<String?> _getCookies() async {
     print("get cookies");
-    String cookies = await controller.evaluateJavascript('document.cookie');
-    List<String> cookieList = cookies.split(';').map((e) => e.trim()).toList();
+    String cookies = await WebViewController().runJavaScript('document.cookie') as String;
+    final List<String> cookieWidgets = cookies.split(';');
 
     print(cookies);
     return cookies;
@@ -118,45 +69,6 @@ class Pestana {
     // return cookies.isEmpty
     //     ? null
     //     : cookies.map((cookie) => cookie.toString()).join(';');
-  }
-
-  Future<String?> getCook() async {
-    print("get cookies");
-    String cookies = await controller.evaluateJavascript('document.cookie');
-    List<Cookie> listaCookies = procesarCookies(cookies);
-    // Imprimir la información de las cookies
-    for (Cookie cookie in listaCookies) {
-      print('Nombre: ${cookie.name}');
-      print('Valor: ${cookie.value}');
-      print('Dominio: ${cookie.domain}');
-      print('Ruta: ${cookie.path}');
-      print('---------------');
-    }
-  }
-
-  List<Cookie> procesarCookies(String cookiesString) {
-    List<Cookie> listaCookies = [];
-
-    // Dividir la cadena de cookies en cookies individuales
-    List<String> cookiesList = cookiesString.split(';');
-
-    // Procesar cada cookie individualmente
-    for (String cookieString in cookiesList) {
-      // Dividir la cookie en nombre y valor
-      List<String> cookieParts = cookieString.trim().split('=');
-
-      // Verificar si hay al menos dos partes (nombre y valor)
-      if (cookieParts.length >= 2) {
-        String nombre = cookieParts[0];
-        String valor = cookieParts[1];
-
-        // Crear una instancia de Cookie y agregarla a la lista
-        Cookie cookie = Cookie(nombre, valor);
-        listaCookies.add(cookie);
-      }
-    }
-
-    return listaCookies;
   }
 }
 
@@ -176,6 +88,73 @@ class ViewPageState extends State<ViewPage> {
   @override
   void initState() {
     super.initState();
+
+    late final PlatformWebViewControllerCreationParams params;
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+        mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+      );
+    } else {
+      params = const PlatformWebViewControllerCreationParams();
+    }
+
+    final WebViewController controller =
+        WebViewController.fromPlatformCreationParams(params);
+
+    controller
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (int progress) {
+            debugPrint('WebView is loading (progress : $progress%)');
+          },
+          onPageStarted: (String url) {
+            debugPrint('Page started loading: $url');
+          },
+          onPageFinished: (String url) {
+            debugPrint('Page finished loading: $url');
+          },
+          onWebResourceError: (WebResourceError error) {
+            debugPrint('''
+Page resource error:
+  code: ${error.errorCode}
+  description: ${error.description}
+  errorType: ${error.errorType}
+  isForMainFrame: ${error.isForMainFrame}
+          ''');
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            if (request.url.startsWith('https://www.youtube.com/')) {
+              debugPrint('blocking navigation to ${request.url}');
+              return NavigationDecision.prevent;
+            }
+            debugPrint('allowing navigation to ${request.url}');
+            return NavigationDecision.navigate;
+          },
+          onUrlChange: (UrlChange change) {
+            debugPrint('url change to ${change.url}');
+          },
+        ),
+      )
+      ..addJavaScriptChannel(
+        'Toaster',
+        onMessageReceived: (JavaScriptMessage message) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message.message)),
+          );
+        },
+      )
+      ..loadRequest(Uri.parse("${widget.page.url}"));
+
+    if (controller.platform is AndroidWebViewController) {
+      AndroidWebViewController.enableDebugging(true);
+      (controller.platform as AndroidWebViewController)
+          .setMediaPlaybackRequiresUserGesture(false);
+    }
+
+    _controller = controller;
 
     widget.page.loadCookies(); // Cargar cookies al iniciar
   }
@@ -207,7 +186,7 @@ class ViewPageState extends State<ViewPage> {
                     fixedSize: Size(MediaQuery.of(context).size.width * .65, 1),
                   ),
                   onPressed: () {
-                    widget.page.clearCookies();
+                    widget.page.saveCookies();
 
                     Navigator.pushReplacement(
                       context,
@@ -238,7 +217,7 @@ class ViewPageState extends State<ViewPage> {
                     ),
                   ),
                   onPressed: () {
-                    widget.page.clearCookies();
+                    widget.page.saveCookies();
 
                     Navigator.push(
                       context,
@@ -254,17 +233,8 @@ class ViewPageState extends State<ViewPage> {
           ),
         ),
       ),
-      body: WebView(
-        initialUrl: widget.page.url,
-        javascriptMode: JavascriptMode.unrestricted,
-        onWebViewCreated: (WebViewController webViewController) {
-          // webViewController = widget.page.controller;
-          widget.page.controller = webViewController;
-          widget.page.loadCookies();
-        },
-        onPageFinished: (String url) {
-          widget.page.saveCookies();
-        },
+      body: WebViewWidget(
+        controller: _controller,
       ),
     );
   }

@@ -12,6 +12,7 @@ class AppScreen extends StatefulWidget {
 class _AppScreenState extends State<AppScreen> {
   List<String> pestanasAbiertas = [];
   List<WebViewController> webAbierto = [];
+  List<String> id = [];
 
   List<String> urlAbiertas = [];
   TextEditingController controller = TextEditingController();
@@ -27,6 +28,7 @@ class _AppScreenState extends State<AppScreen> {
     setState(() {
       pestanasAbiertas = prefs.getStringList('pestanas') ?? [];
       urlAbiertas = prefs.getStringList('urls') ?? [];
+      id = prefs.getStringList('idU') ?? [];
     });
   }
 
@@ -35,6 +37,7 @@ class _AppScreenState extends State<AppScreen> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setStringList('pestanas', pestanasAbiertas);
     prefs.setStringList('urls', urlAbiertas);
+    prefs.setStringList('idU', id);
   }
 
   // Añadir nueva pestana
@@ -43,6 +46,7 @@ class _AppScreenState extends State<AppScreen> {
       pestanasAbiertas.add(nombre);
       urlAbiertas.add(url);
       controller.clear();
+      id.add(pestanasAbiertas.length.toString());
       guardarPestanas();
     });
   }
@@ -76,6 +80,7 @@ class _AppScreenState extends State<AppScreen> {
                     page: Pestana(
                       name: nombre,
                       url: url,
+                      uniqueId: pestanasAbiertas.length.toString(),
                     ),
                   ),
                 ));
@@ -142,5 +147,7 @@ List<Aplicacion> aplicaciones = [
 
   Aplicacion(
       icono: Icons.mail, nombre: 'Gmail', url: "https://www.gmail.com/"),
-  Aplicacion(icono: Icons.add, nombre: "Twitter", url: "https://twitter.com/")
+  Aplicacion(icono: Icons.add, nombre: "Twitter", url: "https://twitter.com/"),
+
+  Aplicacion(icono: Icons.add, nombre: "Outlook", url: "https://outlook.com/")
 ];

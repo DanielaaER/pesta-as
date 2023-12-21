@@ -149,5 +149,5 @@ List<Aplicacion> aplicaciones = [
       icono: Icons.mail, nombre: 'Gmail', url: "https://www.gmail.com/"),
   Aplicacion(icono: Icons.add, nombre: "Twitter", url: "https://twitter.com/"),
 
-  Aplicacion(icono: Icons.add, nombre: "Outlook", url: "https://outlook.com/")
+  Aplicacion(icono: Icons.add, nombre: "Outlook", url: "https://outlook.office.com/mail/")
 ];

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -18,9 +19,37 @@ class Pestana {
   final String url;
   final String uniqueId;
   late WebViewController controller;
+  static final WebviewCookieManager _globalCookieManager = WebviewCookieManager();
 
   Pestana({required this.name, required this.url})
       : uniqueId = UniqueKey().toString();
+
+  Future<void> saveCookies() async {
+    try {
+      final cookies = await _getCookies() ?? '';
+      final prefs = await SharedPreferences.getInstance();
+      prefs.setStringList('${uniqueId}_cookies_$name', [cookies]);
+    } catch (error) {
+      if (kDebugMode) {
+        print("Error al guardar las cookies: $error");
+      }
+    }
+  }
+
+  Future<void> loadCookies() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cookiesStringList = prefs.getStringList('${uniqueId}_cookies_$name');
+    
+    if (cookiesStringList != null) {
+      final cookies = cookiesStringList.map((cookieString) => Cookie.fromSetCookieValue(cookieString)).toList();
+      await _globalCookieManager.setCookies(cookies, origin: url);
+    }
+  }
+
+  Future<String?> _getCookies() async {
+    final cookies = await _globalCookieManager.getCookies(url) ?? [];
+    return cookies.isEmpty ? null : cookies.map((cookie) => cookie.toString()).join(';');
+  }
 }
 
 class ViewPage extends StatefulWidget {
@@ -35,11 +64,11 @@ class ViewPage extends StatefulWidget {
 class ViewPageState extends State<ViewPage> {
   late WebViewController _controller;
   final cookieManager = WebviewCookieManager();
-  late WebviewCookieManager _cookieManager; // Use a dedicated cookie manager for each WebView
+
+
   @override
   void initState() {
     super.initState();
-    _cookieManager = WebviewCookieManager();
 
     late final PlatformWebViewControllerCreationParams params;
     if (WebViewPlatform.instance is WebKitWebViewPlatform) {
@@ -51,9 +80,7 @@ class ViewPageState extends State<ViewPage> {
       params = const PlatformWebViewControllerCreationParams();
     }
 
-    final WebViewController controller =
-    WebViewController.fromPlatformCreationParams(params);
-    // #enddocregion platform_features
+    final WebViewController controller = WebViewController.fromPlatformCreationParams(params);
 
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -99,19 +126,16 @@ Page resource error:
           );
         },
       )
-      ..loadRequest(Uri.parse('https://flutter.dev'));
+      ..loadRequest(Uri.parse("${widget.page.url}"));
 
-    // #docregion platform_features
     if (controller.platform is AndroidWebViewController) {
       AndroidWebViewController.enableDebugging(true);
       (controller.platform as AndroidWebViewController)
           .setMediaPlaybackRequiresUserGesture(false);
     }
-    // #enddocregion platform_features
 
     _controller = controller;
-
-}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,23 +148,16 @@ Page resource error:
             children: [
               Container(
                 alignment: AlignmentDirectional.centerStart,
-                width: MediaQuery
-                    .of(context)
-                    .size
-                    .width * .72,
+                width: MediaQuery.of(context).size.width * .72,
                 child: TextButton(
                   style: TextButton.styleFrom(
                     primary: Colors.transparent,
                     padding: EdgeInsets.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
-                    fixedSize: Size(MediaQuery
-                        .of(context)
-                        .size
-                        .width * .65, 1),
+                    fixedSize: Size(MediaQuery.of(context).size.width * .65, 1),
                   ),
                   onPressed: () {
-                    // _saveCookies();
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
@@ -158,24 +175,15 @@ Page resource error:
                 ),
               ),
               Container(
-                width: MediaQuery
-                    .of(context)
-                    .size
-                    .width * .2,
+                width: MediaQuery.of(context).size.width * .2,
                 alignment: AlignmentDirectional.centerEnd,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     primary: Colors.transparent,
                     onPrimary: Colors.black,
                     fixedSize: Size(
-                      MediaQuery
-                          .of(context)
-                          .size
-                          .width * .00001,
-                      MediaQuery
-                          .of(context)
-                          .size
-                          .height * .001,
+                      MediaQuery.of(context).size.width * .00001,
+                      MediaQuery.of(context).size.height * .001,
                     ),
                   ),
                   onPressed: () {
@@ -193,9 +201,9 @@ Page resource error:
           ),
         ),
       ),
-      body: WebViewWidget(controller: _controller),
+      body: WebViewWidget(
+        controller: _controller,
+      ),
     );
   }
-
-
 }

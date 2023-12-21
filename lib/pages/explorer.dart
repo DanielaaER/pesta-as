@@ -1,9 +1,9 @@
     import 'package:flutter/material.dart';
     import 'package:organization/pages/home.dart';
+import 'package:organization/pages/view.dart';
     import 'package:shared_preferences/shared_preferences.dart';
 
     import 'app.dart';
-    import 'vista.dart';
 
     class ExplorerScreen extends StatefulWidget {
       @override

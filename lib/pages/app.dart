@@ -81,6 +81,7 @@ class _AppScreenState extends State<AppScreen> {
                       name: nombre,
                       url: url,
                       uniqueId: pestanasAbiertas.length.toString(),
+
                     ),
                   ),
                 ));

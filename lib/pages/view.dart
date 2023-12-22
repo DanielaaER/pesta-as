@@ -15,93 +15,13 @@ class Pestana {
   final String url;
   final String uniqueId;
   late WebViewController controller;
-  static final WebviewCookieManager _globalCookieManager =
-  WebviewCookieManager();
+  static final WebviewCookieManager globalCookieManager =
+      WebviewCookieManager();
+  late List<WebViewCookie> cookies;
 
   Pestana({required this.name, required this.url, required this.uniqueId});
-
-  Future<void> saveCookies() async {
-    try {
-      final cookies = await _getCookies() ?? '';
-      final prefs = await SharedPreferences.getInstance();
-      prefs.setStringList('${uniqueId}_cookies_$name', [cookies]);
-      print("save cookies");
-      print("${uniqueId}_cookies_$name");
-      print(cookies);
-    } catch (error) {
-      if (kDebugMode) {
-        print("Error al guardar las cookies: $error");
-      }
-    }
-  }
-
-  Future<void> clearCookies() async {
-    var cookies = await _getCookies() ?? '';
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setStringList('${uniqueId}_cookies_$name', [cookies]);
-    print("save cookies");
-    print("${uniqueId}_cookies_$name");
-    print(cookies);
-
-    print("clear in save");
-    _globalCookieManager.clearCookies();
-    print("cookies limpias");
-    cookies = await _getCookies() ?? '';
-    print(cookies);
-  }
-
-  Future<void> loadCookies() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cookiesStringList = prefs.getStringList('${uniqueId}_cookies_$name');
-    print("load cookie");
-    print("${uniqueId}_cookies_$name");
-    if (cookiesStringList != null) {
-      print("coookk");
-      for (String cookiesString in cookiesStringList) {
-        // Dividir la cadena de cookies en cookies individuales
-        List<String> cookiesList = cookiesString.split("; ");
-
-        for (String cookieString in cookiesList) {
-          // Dividir cada cookie en nombre y valor
-          List<String> cookieParts = cookieString.split('=');
-
-          if (cookieParts.length == 2) {
-            String nombre = cookieParts[0].trim();
-            String valor = cookieParts[1].trim();
-            print("nombre: " + nombre);
-            print("valor: " + valor);
-
-            await CookieManager().setCookie(
-              WebViewCookie(
-                name: nombre,
-                value: valor,
-                domain: url,
-                path: '/',
-              ),
-            );
-          }
-        }
-      }
-    }
-
-    final cookies = await _getCookies() ?? '';
-    print("new cookies");
-    print(cookies);
-  }
-
-  Future<String?> _getCookies() async {
-    print("get cookies");
-    String cookies = await controller.evaluateJavascript('document.cookie');
-    List<String> cookieList = cookies.split(';').map((e) => e.trim()).toList();
-
-    print(cookies);
-    return cookies;
-    // final cookies = await _globalCookieManager.getCookies(url) ?? [];
-    // return cookies.isEmpty
-    //     ? null
-    //     : cookies.map((cookie) => cookie.toString()).join(';');
-  }
 }
+
 class ViewPage extends StatefulWidget {
   final Pestana page;
 
@@ -113,23 +33,41 @@ class ViewPage extends StatefulWidget {
 
 class ViewPageState extends State<ViewPage> {
   late WebViewController _controller;
-  final cookieManager = WebviewCookieManager();
+  late final CookieManager? cookieManager;
+  bool step = true;
+  late final WebViewController webViewController;
 
   @override
   void initState() {
     super.initState();
-
-    widget.page.loadCookies(); // Cargar cookies al iniciar
+    cargarCookies();
+    cargar();
+    // widget.page.loadCookies(); // Cargar cookies al iniciar
   }
 
   @override
   void dispose() {
-    widget.page.saveCookies(); // Guardar cookies al salir
+    saveCookies(); // Guardar cookies al salir
     super.dispose();
+  }
+
+  void cargar() async {
+    setState(() {
+      step = false;
+    });
+    print("step ${step}");
+    await cargarCookies();
+
+    setState(() {
+      step = true;
+    });
+
+    print("step ${step}");
   }
 
   @override
   Widget build(BuildContext context) {
+    // if (step) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.deepPurple,
@@ -149,7 +87,7 @@ class ViewPageState extends State<ViewPage> {
                     fixedSize: Size(MediaQuery.of(context).size.width * .65, 1),
                   ),
                   onPressed: () {
-                    widget.page.clearCookies();
+                    clearCookies();
 
                     Navigator.pushReplacement(
                       context,
@@ -180,7 +118,7 @@ class ViewPageState extends State<ViewPage> {
                     ),
                   ),
                   onPressed: () {
-                    widget.page.clearCookies();
+                    clearCookies();
 
                     Navigator.push(
                       context,
@@ -199,15 +137,132 @@ class ViewPageState extends State<ViewPage> {
       body: WebView(
         initialUrl: widget.page.url,
         javascriptMode: JavascriptMode.unrestricted,
+        debuggingEnabled: true,
+        // initialCookies: widget.page.cookies,
         onWebViewCreated: (WebViewController webViewController) {
-          // webViewController = widget.page.controller;
+          cargarCookies();
+          print('onWebViewCreated llamado');
+          _controller = webViewController;
+
           widget.page.controller = webViewController;
-          widget.page.loadCookies();
         },
         onPageFinished: (String url) {
-          widget.page.saveCookies();
+          getCookies();
         },
+
       ),
     );
+    // } else {
+    //   return Scaffold(
+    //     body: Center(
+    //       child: CircularProgressIndicator(),
+    //     ),
+    //   );
+    // }
+  }
+
+  Future<void> saveCookies() async {
+    try {
+      final cookies = await _getCookies() ?? '';
+      final prefs = await SharedPreferences.getInstance();
+      prefs.setStringList(
+          '${widget.page.uniqueId}_cookies_${widget.page.name}', [cookies]);
+      print("save cookies");
+      print("${widget.page.uniqueId}_cookies_${widget.page.name}");
+      print(cookies);
+    } catch (error) {
+      if (kDebugMode) {
+        print("Error al guardar las cookies: $error");
+      }
+    }
+  }
+
+  Future<void> clearCookies() async {
+    var cookies = await _getCookies() ?? '';
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setStringList(
+        '${widget.page.uniqueId}_cookies_${widget.page.name}', [cookies]);
+    print("save cookies");
+    print("${widget.page.uniqueId}_cookies_${widget.page.name}");
+    print(cookies);
+
+    print("clear in save");
+    WebviewCookieManager().clearCookies();
+    print("cookies limpias");
+    cookies = await _getCookies() ?? '';
+    print(cookies);
+  }
+
+  Future<String?> _getCookies() async {
+    print("get cookies");
+    String cookies = await _controller.evaluateJavascript('document.cookie');
+
+    List<String> cookieList = cookies.split(';').map((e) => e.trim()).toList();
+
+    print("en get" + cookies);
+    return cookies;
+  }
+
+  Future<List<WebViewCookie>> getCookies() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cookiesStringList = prefs.getStringList(
+            '${widget.page.uniqueId}_cookies_${widget.page.name}') ??
+        [];
+    print('${widget.page.uniqueId}_cookies_${widget.page.name}');
+    print("cargo lista");
+    print(cookiesStringList);
+    List<WebViewCookie> cookies = [];
+
+    for (String cookiesString in cookiesStringList) {
+      List<String> cookiesList = cookiesString.split("; ");
+
+      for (String cookieString in cookiesList) {
+        List<String> cookieParts = cookieString.split('=');
+
+        if (cookieParts.length == 2) {
+          String nombre = cookieParts[0].trim();
+          String valor = cookieParts[1].trim();
+          print("nombre: " + nombre);
+          print("valor: " + valor);
+
+          WebViewCookie webViewCookie = WebViewCookie(
+            name: nombre,
+            value: valor,
+            domain: widget.page.url,
+          );
+          await CookieManager().setCookie(
+            WebViewCookie(
+              name: nombre,
+              value: valor,
+              domain: widget.page.url,
+            ),
+          );
+          String cookie = '$nombre=$valor; path=/; domain=${widget.page.url}';
+          await _controller.evaluateJavascript('document.cookie = "$cookie";');
+
+          cookies.add(webViewCookie);
+          final gcook = await _getCookies() ?? '';
+          print("agregue una? " + gcook);
+
+          // await webViewController.loadRequest(Uri.parse(
+          //   'https://httpbin.org/anything',
+          // ));
+        }
+
+      }
+    }
+
+    print(cookies);
+    return cookies;
+  }
+
+  Future<void> cargarCookies() async {
+    List<WebViewCookie> listaCookies = await getCookies();
+
+    await _controller.loadUrl(widget.page.url);
+    print("estoy cargando cookies");
+    print(listaCookies);
+    widget.page.cookies = listaCookies;
+    _getCookies();
   }
 }

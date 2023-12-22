@@ -17,7 +17,8 @@ class Pestana {
   final String uniqueId;
   late WebViewController controller;
   static final WebviewCookieManager _globalCookieManager =
-      WebviewCookieManager();
+  WebviewCookieManager();
+  late final WebViewCookieManager cookieManager = WebViewCookieManager();
 
   Pestana({required this.name, required this.url, required this.uniqueId});
 
@@ -47,28 +48,53 @@ class Pestana {
     print("load cookie");
     print("${uniqueId}_cookies_$name");
     print(cookiesStringList);
-
     if (cookiesStringList != null) {
-      // final cookies = cookiesStringList
-      //     .map((cookieString) => Cookie.fromSetCookieValue(cookieString))
-      //     .toList();
-      // await _globalCookieManager.setCookies(cookies, origin: url);
-      print("new pasge");
+      print("coookk");
+      for (String cookiesString in cookiesStringList) {
+        // Dividir la cadena de cookies en cookies individuales
+        List<String> cookiesList = cookiesString.split("; ");
 
+        for (String cookieString in cookiesList) {
+          // Dividir cada cookie en nombre y valor
+          List<String> cookieParts = cookieString.split('=');
+
+          if (cookieParts.length == 2) {
+            String nombre = cookieParts[0].trim();
+            String valor = cookieParts[1].trim();
+            print("nombre: " + nombre);
+            print("valor: " + valor);
+
+            await cookieManager.setCookie(
+               WebViewCookie(
+                name: nombre,
+                value: valor,
+                domain: url,
+                path: '/',
+              ),
+            );
+          }
+        }
+      }
     }
+    _getCookies();
+
   }
 
   Future<String?> _getCookies() async {
     print("get cookies");
-    String cookies = await WebViewController().runJavaScript('document.cookie') as String;
-    final List<String> cookieWidgets = cookies.split(';');
-
+    // String cookies = await WebViewController().runJavaScriptReturningResult('document.cookie') as String;
+    //
+    // print(cookies);
+    // return cookies;
+    final cookies = await _globalCookieManager.getCookies(url) ?? [];
     print(cookies);
-    return cookies;
-    // final cookies = await _globalCookieManager.getCookies(url) ?? [];
-    // return cookies.isEmpty
-    //     ? null
-    //     : cookies.map((cookie) => cookie.toString()).join(';');
+    final String cookie = await WebViewController()
+        .runJavaScriptReturningResult('document.cookie') as String;
+    print("cookie"+cookie);
+
+    return cookies.isEmpty
+        ? null
+        : cookies.map((cookie) => cookie.toString()).join(';');
   }
 }
 
@@ -83,7 +109,9 @@ class ViewPage extends StatefulWidget {
 
 class ViewPageState extends State<ViewPage> {
   late WebViewController _controller;
-  final cookieManager = WebviewCookieManager();
+  final cookieManager = WebViewCookieManager();
+
+
 
   @override
   void initState() {
@@ -100,7 +128,7 @@ class ViewPageState extends State<ViewPage> {
     }
 
     final WebViewController controller =
-        WebViewController.fromPlatformCreationParams(params);
+    WebViewController.fromPlatformCreationParams(params);
 
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
